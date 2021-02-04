@@ -2,6 +2,7 @@ import React, { Component } from 'react';
 import { Text, View } from 'react-native';
 import PropTypes from 'prop-types';
 import { TranslatorFactory } from '../services';
+import AsyncStorage from '@react-native-async-storage/async-storage'
 
 /**
  * Main component of Power Translator module.
@@ -35,6 +36,8 @@ export default class PowerTranslator extends Component {
          * all the styles for Text component is valid.
          */
       style: PropTypes.object,
+
+      target: PropTypes.string
     };
 
     static defaultProps = {
@@ -59,24 +62,41 @@ export default class PowerTranslator extends Component {
       this.getTranslation();
     }
 
-    getTranslation() {
+    async getTranslation() {
       this.props.onTranslationStart();
       const translator = TranslatorFactory.createTranslator();
 
+      var prevt = await AsyncStorage.getItem('translations')
+      var prev = prevt ? JSON.parse(prevt) : []
+
+      if(prev.some(obj => obj.from === this.props.text && obj.target === this.props.target)){
+        var idx = prev.findIndex(obj => obj.from === this.props.text && obj.target === this.props.target)
+
+        this.setState({translatedText: prev[idx].to})
+      }else{
       translator.translate(this.props.text).then((translated) => {
         this.setState({ translatedText: translated }, () => {
           this.props.onTranslationEnd();
+          this.catch(translated)
         });
       });
     }
+    }
+   catch = async(translation) => {
+      var prevt = await AsyncStorage.getItem('translations')
+      var prev = prevt ? JSON.parse(prevt) : []
+      var toAdd = {from: this.props.text, target: this.props.target, to: translation}
 
+      if(prev.some(obj => JSON.stringify(obj) == JSON.stringify(toAdd))){
+      }else{
+        await AsyncStorage.setItem('translations', JSON.stringify([...prev, toAdd]))
+      }
+    }
     render() {
       return (
-        <View>
           <Text style={[{ ...this.props.style }]}>
             {this.state.translatedText}
           </Text>
-        </View>
       );
     }
 }
